@@ -1,15 +1,22 @@
-import random
 import uuid
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    status,
+)
 from sqlalchemy.orm import Session
 
 from ..auth import get_current_user
-from ..config import settings
 from ..db import get_db
 from ..models import Card, Transaction
-from ..schemas import PaymentRequest, PaymentResponse
+from ..payment_service import simulate_payment
+from ..schemas import (
+    PaymentRequest,
+    PaymentResponse,
+)
 
 
 router = APIRouter(
@@ -30,9 +37,9 @@ def make_payment(
 ):
     user_id = current_user["user_id"]
 
-    # -----------------------------------------------------
-    # 1. Validate card
-    # -----------------------------------------------------
+    # =====================================================
+    # 1. VALIDATE CARD OWNERSHIP
+    # =====================================================
 
     card = (
         db.query(Card)
@@ -50,25 +57,31 @@ def make_payment(
             detail="Card not found for this user.",
         )
 
-    # -----------------------------------------------------
-    # 2. Validate amount
-    # -----------------------------------------------------
+    # =====================================================
+    # 2. VALIDATE PAYMENT AMOUNT
+    # =====================================================
 
     if payload.amount <= Decimal("0"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Payment amount must be greater than zero.",
+            detail=(
+                "Payment amount must be "
+                "greater than zero."
+            ),
         )
 
     if payload.amount > Decimal("1000000"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Payment amount exceeds the allowed limit.",
+            detail=(
+                "Payment amount exceeds "
+                "the allowed limit."
+            ),
         )
 
-    # -----------------------------------------------------
-    # 3. Create transaction as PENDING
-    # -----------------------------------------------------
+    # =====================================================
+    # 3. CREATE PENDING TRANSACTION
+    # =====================================================
 
     reference = (
         f"PAY-{uuid.uuid4().hex[:16].upper()}"
@@ -89,28 +102,23 @@ def make_payment(
     db.commit()
     db.refresh(transaction)
 
-    # -----------------------------------------------------
-    # 4. Simulate payment
-    # -----------------------------------------------------
+    # =====================================================
+    # 4. SIMULATE PAYMENT
+    # =====================================================
 
-    random_value = random.randint(1, 100)
+    payment_status, failure_reason = (
+        simulate_payment()
+    )
 
-    if random_value <= settings.PAYMENT_SUCCESS_RATE:
-        transaction.status = "SUCCESS"
-        transaction.failure_reason = ""
-
-    else:
-        transaction.status = "FAILED"
-        transaction.failure_reason = (
-            "Simulated payment failure."
-        )
+    transaction.status = payment_status
+    transaction.failure_reason = failure_reason
 
     db.commit()
     db.refresh(transaction)
 
-    # -----------------------------------------------------
-    # 5. Return final result
-    # -----------------------------------------------------
+    # =====================================================
+    # 5. RETURN FINAL RESULT
+    # =====================================================
 
     return PaymentResponse(
         id=transaction.id,

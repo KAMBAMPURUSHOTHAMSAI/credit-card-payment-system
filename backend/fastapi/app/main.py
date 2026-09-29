@@ -1,10 +1,11 @@
 from fastapi import Depends, FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from .auth import get_current_user
 from .db import get_db
 from .models import Card
-from .auth import get_current_user
 from .routes.payments import router as payment_router
 
 
@@ -17,8 +18,39 @@ app = FastAPI(
     version="1.0.0",
 )
 
-app.include_router(payment_router)
 
+# =========================================================
+# CORS
+# =========================================================
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ],
+    allow_credentials=True,
+    allow_methods=[
+        "*",
+    ],
+    allow_headers=[
+        "*",
+    ],
+)
+
+
+# =========================================================
+# ROUTERS
+# =========================================================
+
+app.include_router(
+    payment_router
+)
+
+
+# =========================================================
+# HEALTH
+# =========================================================
 
 @app.get(
     "/health",
@@ -30,6 +62,10 @@ def health_check():
         "service": "fastapi-payment-service",
     }
 
+
+# =========================================================
+# DATABASE CHECK
+# =========================================================
 
 @app.get(
     "/database-check",
@@ -48,6 +84,10 @@ def database_check(
     }
 
 
+# =========================================================
+# DATABASE CARD TEST
+# =========================================================
+
 @app.get(
     "/database/cards",
     tags=["Database Test"],
@@ -57,7 +97,9 @@ def database_cards(
 ):
     cards = (
         db.query(Card)
-        .filter(Card.is_active.is_(True))
+        .filter(
+            Card.is_active.is_(True)
+        )
         .all()
     )
 
@@ -77,6 +119,12 @@ def database_cards(
             for card in cards
         ],
     }
+
+
+# =========================================================
+# JWT TEST
+# =========================================================
+
 @app.get(
     "/auth-test",
     tags=["Authentication"],

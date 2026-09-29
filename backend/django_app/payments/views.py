@@ -1,75 +1,110 @@
 import csv
-import uuid
+from datetime import datetime, time, timedelta
 
-from django.db.models import (
-    Count,
-    Sum,
-    Q,
-)
+from django.db.models import Count, Q, Sum
 from django.http import HttpResponse
-from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from django.utils.dateparse import parse_date
 
-from django_filters.rest_framework import (
-    DjangoFilterBackend,
-)
+from django_filters.rest_framework import DjangoFilterBackend
 
-from rest_framework import (
-    generics,
-    status,
-)
-from rest_framework.permissions import (
-    IsAuthenticated,
-)
+from rest_framework import generics, status
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import (
-    Card,
-    Transaction,
-    AdminLog,
-)
+from .models import AdminLog, Card, Transaction
+from .permissions import IsAdminUserCustom
+from .serializers import CardSerializer, TransactionSerializer
 
-from .serializers import (
-    CardSerializer,
-    TransactionSerializer,
-)
 
-from .permissions import (
-    IsAdminUserCustom,
-)
+# =========================================================
+# HELPER FUNCTIONS
+# =========================================================
 
 
 def get_client_ip(request):
+    """
+    Get the client IP address from the request.
+    Supports reverse-proxy forwarded IPs.
+    """
+
     forwarded = request.META.get(
         "HTTP_X_FORWARDED_FOR"
     )
 
     if forwarded:
-        return forwarded.split(",")[0]
+        return forwarded.split(",")[0].strip()
 
     return request.META.get(
         "REMOTE_ADDR"
     )
 
 
+def get_local_day_range(target_date):
+    """
+    Return the timezone-aware start and end datetime
+    for one local calendar day.
+
+    Example:
+        2026-09-29 00:00:00 IST
+        to
+        2026-09-30 00:00:00 IST
+    """
+
+    current_timezone = (
+        timezone.get_current_timezone()
+    )
+
+    start_of_day = timezone.make_aware(
+        datetime.combine(
+            target_date,
+            time.min,
+        ),
+        current_timezone,
+    )
+
+    end_of_day = (
+        start_of_day + timedelta(days=1)
+    )
+
+    return start_of_day, end_of_day
+
+
+# =========================================================
+# CARD MANAGEMENT
+# =========================================================
+
+
 class CardListCreateView(
     generics.ListCreateAPIView
 ):
+    """
+    GET:
+        Return active cards belonging to
+        the currently authenticated user.
+
+    POST:
+        Create a new saved card.
+    """
 
     serializer_class = CardSerializer
+
     permission_classes = [
         IsAuthenticated
     ]
 
     def get_queryset(self):
-        return Card.objects.filter(
-            user=self.request.user,
-            is_active=True,
+        return (
+            Card.objects
+            .filter(
+                user=self.request.user,
+                is_active=True,
+            )
+            .order_by("-created_at")
         )
 
     def perform_create(self, serializer):
-
         serializer.save(
             user=self.request.user
         )
@@ -78,8 +113,15 @@ class CardListCreateView(
 class CardDeleteView(
     generics.DestroyAPIView
 ):
+    """
+    Soft-delete a saved card.
+
+    The database row is retained so that
+    existing transaction history remains valid.
+    """
 
     serializer_class = CardSerializer
+
     permission_classes = [
         IsAuthenticated
     ]
@@ -91,8 +133,8 @@ class CardDeleteView(
         )
 
     def perform_destroy(self, instance):
-        # Soft delete preserves transaction history.
         instance.is_active = False
+
         instance.save(
             update_fields=[
                 "is_active"
@@ -100,13 +142,29 @@ class CardDeleteView(
         )
 
 
+# =========================================================
+# TRANSACTION HISTORY
+# =========================================================
+
+
 class TransactionListView(
     generics.ListAPIView
 ):
+    """
+    Return transaction history for the
+    currently authenticated user.
 
-    serializer_class = (
-        TransactionSerializer
-    )
+    Supported filters:
+
+    status
+    amount
+    start_date
+    end_date
+    min_amount
+    max_amount
+    """
+
+    serializer_class = TransactionSerializer
 
     permission_classes = [
         IsAuthenticated
@@ -129,33 +187,78 @@ class TransactionListView(
                 user=self.request.user
             )
             .select_related("card")
+            .order_by("-created_at")
         )
 
-        start_date = self.request.query_params.get(
-            "start_date"
+        # -------------------------------------------------
+        # DATE FILTERS
+        # -------------------------------------------------
+
+        start_date_value = (
+            self.request.query_params.get(
+                "start_date"
+            )
         )
 
-        end_date = self.request.query_params.get(
-            "end_date"
+        end_date_value = (
+            self.request.query_params.get(
+                "end_date"
+            )
         )
 
-        min_amount = self.request.query_params.get(
-            "min_amount"
-        )
+        # Start date
+        if start_date_value:
 
-        max_amount = self.request.query_params.get(
-            "max_amount"
-        )
-
-        if start_date:
-            queryset = queryset.filter(
-                created_at__date__gte=start_date
+            start_date = parse_date(
+                start_date_value
             )
 
-        if end_date:
-            queryset = queryset.filter(
-                created_at__date__lte=end_date
+            if start_date is not None:
+
+                start_datetime, _ = (
+                    get_local_day_range(
+                        start_date
+                    )
+                )
+
+                queryset = queryset.filter(
+                    created_at__gte=start_datetime
+                )
+
+        # End date
+        if end_date_value:
+
+            end_date = parse_date(
+                end_date_value
             )
+
+            if end_date is not None:
+
+                _, end_datetime = (
+                    get_local_day_range(
+                        end_date
+                    )
+                )
+
+                queryset = queryset.filter(
+                    created_at__lt=end_datetime
+                )
+
+        # -------------------------------------------------
+        # AMOUNT FILTERS
+        # -------------------------------------------------
+
+        min_amount = (
+            self.request.query_params.get(
+                "min_amount"
+            )
+        )
+
+        max_amount = (
+            self.request.query_params.get(
+                "max_amount"
+            )
+        )
 
         if min_amount:
             queryset = queryset.filter(
@@ -170,7 +273,23 @@ class TransactionListView(
         return queryset
 
 
+# =========================================================
+# ADMIN DAILY PAYMENT SUMMARY
+# =========================================================
+
+
 class AdminDashboardView(APIView):
+    """
+    Return daily payment summary for administrators.
+
+    Summary includes:
+
+    - Total transactions
+    - Total transaction amount
+    - Successful payments
+    - Failed payments
+    - Pending payments
+    """
 
     permission_classes = [
         IsAdminUserCustom
@@ -178,13 +297,37 @@ class AdminDashboardView(APIView):
 
     def get(self, request):
 
+        # -------------------------------------------------
+        # CURRENT LOCAL DATE
+        # -------------------------------------------------
+
         today = timezone.localdate()
 
-        transactions = Transaction.objects.filter(
-            created_at__date=today
+        # -------------------------------------------------
+        # LOCAL DAY START / END
+        # -------------------------------------------------
+
+        start_of_day, end_of_day = (
+            get_local_day_range(today)
         )
 
+        # -------------------------------------------------
+        # FILTER TRANSACTIONS FOR TODAY
+        # -------------------------------------------------
+
+        transactions = (
+            Transaction.objects.filter(
+                created_at__gte=start_of_day,
+                created_at__lt=end_of_day,
+            )
+        )
+
+        # -------------------------------------------------
+        # AGGREGATE SUMMARY
+        # -------------------------------------------------
+
         summary = transactions.aggregate(
+
             total_transactions=Count(
                 "id"
             ),
@@ -215,6 +358,10 @@ class AdminDashboardView(APIView):
             ),
         )
 
+        # -------------------------------------------------
+        # ADMIN AUDIT LOG
+        # -------------------------------------------------
+
         AdminLog.objects.create(
             admin=request.user,
             action="VIEW_DAILY_SUMMARY",
@@ -223,6 +370,10 @@ class AdminDashboardView(APIView):
                 request
             ),
         )
+
+        # -------------------------------------------------
+        # RESPONSE
+        # -------------------------------------------------
 
         return Response(
             {
@@ -256,9 +407,19 @@ class AdminDashboardView(APIView):
         )
 
 
+# =========================================================
+# ADMIN CSV EXPORT
+# =========================================================
+
+
 class AdminExportTransactionsView(
     APIView
 ):
+    """
+    Export all transactions to CSV.
+
+    Only administrators can access this endpoint.
+    """
 
     permission_classes = [
         IsAdminUserCustom
@@ -277,6 +438,10 @@ class AdminExportTransactionsView(
             )
         )
 
+        # -------------------------------------------------
+        # CSV RESPONSE
+        # -------------------------------------------------
+
         response = HttpResponse(
             content_type="text/csv"
         )
@@ -292,6 +457,10 @@ class AdminExportTransactionsView(
             response
         )
 
+        # -------------------------------------------------
+        # CSV HEADER
+        # -------------------------------------------------
+
         writer.writerow(
             [
                 "Reference",
@@ -302,9 +471,14 @@ class AdminExportTransactionsView(
                 "Currency",
                 "Status",
                 "Description",
+                "Failure Reason",
                 "Created At",
             ]
         )
+
+        # -------------------------------------------------
+        # CSV ROWS
+        # -------------------------------------------------
 
         for transaction in transactions:
 
@@ -318,9 +492,14 @@ class AdminExportTransactionsView(
                     transaction.currency,
                     transaction.status,
                     transaction.description,
+                    transaction.failure_reason,
                     transaction.created_at,
                 ]
             )
+
+        # -------------------------------------------------
+        # ADMIN AUDIT LOG
+        # -------------------------------------------------
 
         AdminLog.objects.create(
             admin=request.user,
