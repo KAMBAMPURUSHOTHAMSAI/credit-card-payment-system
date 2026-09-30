@@ -1,395 +1,382 @@
-{
-  "info": {
-    "_postman_id": "d3f3a4df-65f8-4aef-9f5d-credit-card-payment-system",
-    "name": "Credit Card Payment System",
-    "description": "Postman collection for the Credit Card Payment System. Django handles authentication, cards, transactions and admin APIs; FastAPI handles payment processing.",
-    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
-  },
-  "variable": [
-    {
-      "key": "django_base",
-      "value": "http://127.0.0.1:8000/api"
-    },
-    {
-      "key": "fastapi_base",
-      "value": "http://127.0.0.1:8001"
-    },
-    {
-      "key": "username",
-      "value": "replace-me"
-    },
-    {
-      "key": "password",
-      "value": "replace-me"
-    },
-    {
-      "key": "email",
-      "value": "replace-me@example.com"
-    },
-    {
-      "key": "first_name",
-      "value": "Test"
-    },
-    {
-      "key": "last_name",
-      "value": "User"
-    },
-    {
-      "key": "access_token",
-      "value": ""
-    },
-    {
-      "key": "refresh_token",
-      "value": ""
-    },
-    {
-      "key": "card_id",
-      "value": ""
-    }
-  ],
-  "item": [
-    {
-      "name": "01 Authentication",
-      "item": [
-        {
-          "name": "Register",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"username\": \"{{username}}\",\n  \"email\": \"{{email}}\",\n  \"first_name\": \"{{first_name}}\",\n  \"last_name\": \"{{last_name}}\",\n  \"password\": \"{{password}}\",\n  \"password_confirm\": \"{{password}}\"\n}"
-            },
-            "url": "{{django_base}}/auth/register/"
-          }
-        },
-        {
-          "name": "Login",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Login succeeded', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});",
-                  "const data = pm.response.json();",
-                  "if (data.access) pm.collectionVariables.set('access_token', data.access);",
-                  "if (data.refresh) pm.collectionVariables.set('refresh_token', data.refresh);"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\"\n}"
-            },
-            "url": "{{django_base}}/auth/login/"
-          }
-        },
-        {
-          "name": "Refresh Token",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Refresh succeeded', function () {",
-                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
-                  "});",
-                  "const data = pm.response.json();",
-                  "if (data.access) pm.collectionVariables.set('access_token', data.access);"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"refresh\": \"{{refresh_token}}\"\n}"
-            },
-            "url": "{{django_base}}/auth/refresh/"
-          }
-        },
-        {
-          "name": "Logout",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "Authorization",
-                "value": "Bearer {{access_token}}"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"refresh\": \"{{refresh_token}}\"\n}"
-            },
-            "url": "{{django_base}}/auth/logout/"
-          }
-        }
-      ]
-    },
-    {
-      "name": "02 Cards",
-      "item": [
-        {
-          "name": "Get Saved Cards",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{access_token}}"
-              }
-            ],
-            "url": "{{django_base}}/cards/"
-          }
-        },
-        {
-          "name": "Add Credit Card",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Card created', function () { pm.response.to.have.status(201); });",
-                  "const data = pm.response.json();",
-                  "if (data.id) pm.collectionVariables.set('card_id', data.id);",
-                  "pm.test('CVV is not returned', function () { pm.expect(JSON.stringify(data).toLowerCase()).to.not.contain('cvv'); });",
-                  "pm.test('Full card number is not returned', function () { pm.expect(JSON.stringify(data)).to.not.contain('4111111111111111'); });"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "Authorization",
-                "value": "Bearer {{access_token}}"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"card_type\": \"CREDIT\",\n  \"card_number\": \"4111111111111111\",\n  \"cvv\": \"123\",\n  \"expiry_month\": 12,\n  \"expiry_year\": 2030\n}"
-            },
-            "url": "{{django_base}}/cards/"
-          }
-        },
-        {
-          "name": "Delete Card",
-          "request": {
-            "method": "DELETE",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{access_token}}"
-              }
-            ],
-            "url": "{{django_base}}/cards/{{card_id}}/"
-          }
-        }
-      ]
-    },
-    {
-      "name": "03 Payments (FastAPI)",
-      "item": [
-        {
-          "name": "Health Check",
-          "request": {
-            "method": "GET",
-            "url": "{{fastapi_base}}/health"
-          }
-        },
-        {
-          "name": "Auth Test",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{access_token}}"
-              }
-            ],
-            "url": "{{fastapi_base}}/auth-test"
-          }
-        },
-        {
-          "name": "Make Payment",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Payment request succeeded', function () { pm.response.to.have.status(201); });",
-                  "const data = pm.response.json();",
-                  "pm.test('Final payment status is SUCCESS or FAILED', function () { pm.expect(['SUCCESS', 'FAILED']).to.include(data.status); });"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "Authorization",
-                "value": "Bearer {{access_token}}"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"card_id\": \"{{card_id}}\",\n  \"amount\": 500,\n  \"currency\": \"INR\",\n  \"description\": \"Postman payment test\"\n}"
-            },
-            "url": "{{fastapi_base}}/api/payments/"
-          }
-        },
-        {
-          "name": "Invalid Payment Amount",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "Authorization",
-                "value": "Bearer {{access_token}}"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"card_id\": \"{{card_id}}\",\n  \"amount\": 0,\n  \"currency\": \"INR\",\n  \"description\": \"Validation test\"\n}"
-            },
-            "url": "{{fastapi_base}}/api/payments/"
-          }
-        }
-      ]
-    },
-    {
-      "name": "04 Transactions",
-      "item": [
-        {
-          "name": "Get Transactions",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{access_token}}"
-              }
-            ],
-            "url": "{{django_base}}/transactions/"
-          }
-        },
-        {
-          "name": "Filter by Status",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{access_token}}"
-              }
-            ],
-            "url": "{{django_base}}/transactions/?status=SUCCESS"
-          }
-        },
-        {
-          "name": "Filter by Date",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{access_token}}"
-              }
-            ],
-            "url": "{{django_base}}/transactions/?start_date=2026-09-29&end_date=2026-09-29"
-          }
-        },
-        {
-          "name": "Filter by Amount",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{access_token}}"
-              }
-            ],
-            "url": "{{django_base}}/transactions/?min_amount=100&max_amount=1000"
-          }
-        }
-      ]
-    },
-    {
-      "name": "05 Admin",
-      "item": [
-        {
-          "name": "Daily Dashboard Summary",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{access_token}}"
-              }
-            ],
-            "url": "{{django_base}}/admin/dashboard/"
-          }
-        },
-        {
-          "name": "Export Transactions CSV",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{access_token}}"
-              }
-            ],
-            "url": "{{django_base}}/admin/transactions/export/"
-          }
-        }
-      ]
-    }
-  ]
+﻿{
+    "info":  {
+                 "_postman_id":  "d3f3a4df-65f8-4aef-9f5d-credit-card-payment-system",
+                 "name":  "Credit Card Payment System",
+                 "description":  "Postman collection for the Credit Card Payment System. Django handles authentication, cards, transactions and admin APIs; FastAPI handles payment processing.",
+                 "schema":  "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+             },
+    "variable":  [
+                     {
+                         "key":  "django_base",
+                         "value":  "http://127.0.0.1:8000/api"
+                     },
+                     {
+                         "key":  "fastapi_base",
+                         "value":  "http://127.0.0.1:8001"
+                     },
+                     {
+                         "key":  "username",
+                         "value":  "replace-me"
+                     },
+                     {
+                         "key":  "password",
+                         "value":  "replace-me"
+                     },
+                     {
+                         "key":  "email",
+                         "value":  "replace-me@example.com"
+                     },
+                     {
+                         "key":  "first_name",
+                         "value":  "Test"
+                     },
+                     {
+                         "key":  "last_name",
+                         "value":  "User"
+                     },
+                     {
+                         "key":  "access_token",
+                         "value":  ""
+                     },
+                     {
+                         "key":  "refresh_token",
+                         "value":  ""
+                     },
+                     {
+                         "key":  "card_id",
+                         "value":  ""
+                     }
+                 ],
+    "item":  [
+                 {
+                     "name":  "01 Authentication",
+                     "item":  [
+                                  {
+                                      "name":  "Register",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"username\": \"{{username}}\",\n  \"email\": \"{{email}}\",\n  \"first_name\": \"{{first_name}}\",\n  \"last_name\": \"{{last_name}}\",\n  \"password\": \"{{password}}\",\n  \"password_confirm\": \"{{password}}\"\n}"
+                                                               },
+                                                      "url":  "{{django_base}}/auth/register/"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Login",
+                                      "event":  [
+                                                    {
+                                                        "listen":  "test",
+                                                        "script":  {
+                                                                       "type":  "text/javascript",
+                                                                       "exec":  [
+                                                                                    "pm.test(\u0027Login succeeded\u0027, function () {",
+                                                                                    "    pm.response.to.have.status(200);",
+                                                                                    "});",
+                                                                                    "const data = pm.response.json();",
+                                                                                    "if (data.access) pm.collectionVariables.set(\u0027access_token\u0027, data.access);",
+                                                                                    "if (data.refresh) pm.collectionVariables.set(\u0027refresh_token\u0027, data.refresh);"
+                                                                                ]
+                                                                   }
+                                                    }
+                                                ],
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\"\n}"
+                                                               },
+                                                      "url":  "{{django_base}}/auth/login/"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Refresh Token",
+                                      "event":  [
+                                                    {
+                                                        "listen":  "test",
+                                                        "script":  {
+                                                                       "type":  "text/javascript",
+                                                                       "exec":  [
+                                                                                    "pm.test(\u0027Refresh succeeded\u0027, function () {",
+                                                                                    "    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                                                                                    "});",
+                                                                                    "const data = pm.response.json();",
+                                                                                    "if (data.access) pm.collectionVariables.set(\u0027access_token\u0027, data.access);"
+                                                                                ]
+                                                                   }
+                                                    }
+                                                ],
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"refresh\": \"{{refresh_token}}\"\n}"
+                                                               },
+                                                      "url":  "{{django_base}}/auth/refresh/"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Logout",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     },
+                                                                     {
+                                                                         "key":  "Authorization",
+                                                                         "value":  "Bearer {{access_token}}"
+                                                                     }
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"refresh\": \"{{refresh_token}}\"\n}"
+                                                               },
+                                                      "url":  "{{django_base}}/auth/logout/"
+                                                  }
+                                  }
+                              ]
+                 },
+                 {
+                     "name":  "02 Cards",
+                     "item":  [
+                                  {
+                                      "name":  "Get Saved Cards",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Authorization",
+                                                                         "value":  "Bearer {{access_token}}"
+                                                                     }
+                                                                 ],
+                                                      "url":  "{{django_base}}/cards/"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Add Credit Card",
+                                      "event":  [
+                                                    {
+                                                        "listen":  "test",
+                                                        "script":  {
+                                                                       "type":  "text/javascript",
+                                                                       "exec":  [
+                                                                                    "pm.test(\u0027Card created\u0027, function () { pm.response.to.have.status(201); });",
+                                                                                    "const data = pm.response.json();",
+                                                                                    "if (data.id) pm.collectionVariables.set(\u0027card_id\u0027, data.id);",
+                                                                                    "pm.test(\u0027CVV is not returned\u0027, function () { pm.expect(JSON.stringify(data).toLowerCase()).to.not.contain(\u0027cvv\u0027); });",
+                                                                                    "pm.test(\u0027Full card number is not returned\u0027, function () { pm.expect(JSON.stringify(data)).to.not.contain(\u00274111111111111111\u0027); });"
+                                                                                ]
+                                                                   }
+                                                    }
+                                                ],
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     },
+                                                                     {
+                                                                         "key":  "Authorization",
+                                                                         "value":  "Bearer {{access_token}}"
+                                                                     }
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"card_type\": \"CREDIT\",\n  \"card_number\": \"4111111111111111\",\n  \"cvv\": \"123\",\n  \"expiry_month\": 12,\n  \"expiry_year\": 2030\n}"
+                                                               },
+                                                      "url":  "{{django_base}}/cards/"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Delete Card",
+                                      "request":  {
+                                                      "method":  "DELETE",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Authorization",
+                                                                         "value":  "Bearer {{access_token}}"
+                                                                     }
+                                                                 ],
+                                                      "url":  "{{django_base}}/cards/{{card_id}}/"
+                                                  }
+                                  }
+                              ]
+                 },
+                 {
+                     "name":  "03 Payments (FastAPI)",
+                     "item":  [
+                                  {
+                                      "name":  "Health Check",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "url":  "{{fastapi_base}}/health"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Make Payment",
+                                      "event":  [
+                                                    {
+                                                        "listen":  "test",
+                                                        "script":  {
+                                                                       "type":  "text/javascript",
+                                                                       "exec":  [
+                                                                                    "pm.test(\u0027Payment request succeeded\u0027, function () { pm.response.to.have.status(201); });",
+                                                                                    "const data = pm.response.json();",
+                                                                                    "pm.test(\u0027Final payment status is SUCCESS or FAILED\u0027, function () { pm.expect([\u0027SUCCESS\u0027, \u0027FAILED\u0027]).to.include(data.status); });"
+                                                                                ]
+                                                                   }
+                                                    }
+                                                ],
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     },
+                                                                     {
+                                                                         "key":  "Authorization",
+                                                                         "value":  "Bearer {{access_token}}"
+                                                                     }
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"card_id\": \"{{card_id}}\",\n  \"amount\": 500,\n  \"currency\": \"INR\",\n  \"description\": \"Postman payment test\"\n}"
+                                                               },
+                                                      "url":  "{{fastapi_base}}/api/payments/"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Invalid Payment Amount",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     },
+                                                                     {
+                                                                         "key":  "Authorization",
+                                                                         "value":  "Bearer {{access_token}}"
+                                                                     }
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"card_id\": \"{{card_id}}\",\n  \"amount\": 0,\n  \"currency\": \"INR\",\n  \"description\": \"Validation test\"\n}"
+                                                               },
+                                                      "url":  "{{fastapi_base}}/api/payments/"
+                                                  }
+                                  }
+                              ]
+                 },
+                 {
+                     "name":  "04 Transactions",
+                     "item":  [
+                                  {
+                                      "name":  "Get Transactions",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Authorization",
+                                                                         "value":  "Bearer {{access_token}}"
+                                                                     }
+                                                                 ],
+                                                      "url":  "{{django_base}}/transactions/"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Filter by Status",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Authorization",
+                                                                         "value":  "Bearer {{access_token}}"
+                                                                     }
+                                                                 ],
+                                                      "url":  "{{django_base}}/transactions/?status=SUCCESS"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Filter by Date",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Authorization",
+                                                                         "value":  "Bearer {{access_token}}"
+                                                                     }
+                                                                 ],
+                                                      "url":  "{{django_base}}/transactions/?start_date=2026-09-29\u0026end_date=2026-09-29"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Filter by Amount",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Authorization",
+                                                                         "value":  "Bearer {{access_token}}"
+                                                                     }
+                                                                 ],
+                                                      "url":  "{{django_base}}/transactions/?min_amount=100\u0026max_amount=1000"
+                                                  }
+                                  }
+                              ]
+                 },
+                 {
+                     "name":  "05 Admin",
+                     "item":  [
+                                  {
+                                      "name":  "Daily Dashboard Summary",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Authorization",
+                                                                         "value":  "Bearer {{access_token}}"
+                                                                     }
+                                                                 ],
+                                                      "url":  "{{django_base}}/admin/dashboard/"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Export Transactions CSV",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Authorization",
+                                                                         "value":  "Bearer {{access_token}}"
+                                                                     }
+                                                                 ],
+                                                      "url":  "{{django_base}}/admin/transactions/export/"
+                                                  }
+                                  }
+                              ]
+                 }
+             ]
 }
