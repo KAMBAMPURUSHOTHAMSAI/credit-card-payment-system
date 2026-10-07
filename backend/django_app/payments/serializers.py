@@ -28,6 +28,14 @@ class CardSerializer(serializers.ModelSerializer):
         max_length=4,
     )
 
+    credit_limit = serializers.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        min_value=Decimal("0.00"),
+        required=False,
+        default=Decimal("0.00"),
+    )
+
     class Meta:
         model = Card
 
@@ -41,6 +49,7 @@ class CardSerializer(serializers.ModelSerializer):
             "last4",
             "expiry_month",
             "expiry_year",
+            "credit_limit",
             "is_active",
             "created_at",
         ]
@@ -70,6 +79,15 @@ class CardSerializer(serializers.ModelSerializer):
             "expiry_year"
         )
 
+        card_type = attrs.get(
+            "card_type"
+        )
+
+        credit_limit = attrs.get(
+            "credit_limit",
+            Decimal("0.00"),
+        )
+
         try:
             cleaned_number = (
                 validate_card_number(
@@ -90,6 +108,17 @@ class CardSerializer(serializers.ModelSerializer):
                     "detail": str(exc)
                 }
             )
+
+        if card_type == "DEBIT":
+            if credit_limit != Decimal("0.00"):
+                raise serializers.ValidationError(
+                    {
+                        "credit_limit": (
+                            "Credit limit must be 0 "
+                            "for debit cards."
+                        )
+                    }
+                )
 
         attrs[
             "_cleaned_card_number"

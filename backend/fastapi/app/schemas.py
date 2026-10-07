@@ -1,5 +1,6 @@
+from datetime import datetime
 from decimal import Decimal
-from typing import Optional
+from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -38,3 +39,20 @@ class PaymentResponse(BaseModel):
     status: str
     description: str
     failure_reason: str
+
+
+class DashboardTransaction(BaseModel):
+
+    amount: Decimal
+    masked_card_number: str
+    date: datetime
+    status: str
+
+
+class DashboardSummary(BaseModel):
+
+    total_transactions: int
+    total_amount_spent: Decimal
+    current_month_spending: Decimal
+    available_credit_limit: Decimal
+    last_5_transactions: List[DashboardTransaction]

@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
+
 import { djangoApi } from "../api";
+
 import Navbar from "../components/Navbar";
 
 
@@ -12,6 +14,7 @@ function AddCard() {
     cvv: "",
     expiry_month: "",
     expiry_year: "",
+    credit_limit: "",
   });
 
   const [error, setError] = useState("");
@@ -29,7 +32,6 @@ function AddCard() {
       );
 
       setCards(response.data || []);
-
     } catch (error) {
       setError(
         "Unable to load saved cards."
@@ -60,11 +62,38 @@ function AddCard() {
   };
 
 
+  const handleCardTypeChange = (event) => {
+    const cardType = event.target.value;
+
+    setFormData(
+      (previous) => ({
+        ...previous,
+        card_type: cardType,
+        credit_limit:
+          cardType === "DEBIT"
+            ? "0"
+            : previous.credit_limit,
+      })
+    );
+  };
+
+
   const handleSubmit = async (event) => {
     event.preventDefault();
 
     setError("");
     setSuccess("");
+
+    if (
+      formData.card_type === "CREDIT" &&
+      Number(formData.credit_limit) <= 0
+    ) {
+      setError(
+        "Please enter a valid credit limit for the credit card."
+      );
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -80,6 +109,10 @@ function AddCard() {
           expiry_year: Number(
             formData.expiry_year
           ),
+          credit_limit:
+            formData.card_type === "CREDIT"
+              ? Number(formData.credit_limit)
+              : 0,
         }
       );
 
@@ -93,39 +126,43 @@ function AddCard() {
         cvv: "",
         expiry_month: "",
         expiry_year: "",
+        credit_limit: "",
       });
 
       await loadCards();
-
     } catch (error) {
       const data =
         error.response?.data;
 
       if (data?.detail) {
         setError(data.detail);
+      } else if (data?.credit_limit) {
+        setError(
+          Array.isArray(data.credit_limit)
+            ? data.credit_limit.join(" ")
+            : data.credit_limit
+        );
       } else if (data?.card_number) {
         setError(
-          data.card_number.join(" ")
+          Array.isArray(data.card_number)
+            ? data.card_number.join(" ")
+            : data.card_number
         );
       } else {
         setError(
           "Unable to add card."
         );
       }
-
     } finally {
       setLoading(false);
     }
   };
 
 
-  const handleDelete = async (
-    cardId
-  ) => {
-    const confirmed =
-      window.confirm(
-        "Are you sure you want to delete this card?"
-      );
+  const handleDelete = async (cardId) => {
+    const confirmed = window.confirm(
+      "Are you sure you want to delete this card?"
+    );
 
     if (!confirmed) {
       return;
@@ -144,7 +181,6 @@ function AddCard() {
       );
 
       await loadCards();
-
     } catch (error) {
       setError(
         "Unable to delete card."
@@ -161,7 +197,6 @@ function AddCard() {
       <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
 
         <div className="mb-8">
-
           <h1 className="text-3xl font-bold text-slate-900">
             Manage Cards
           </h1>
@@ -169,7 +204,6 @@ function AddCard() {
           <p className="mt-2 text-slate-600">
             Add and manage your saved credit and debit cards.
           </p>
-
         </div>
 
 
@@ -218,7 +252,7 @@ function AddCard() {
                 id="card_type"
                 name="card_type"
                 value={formData.card_type}
-                onChange={handleChange}
+                onChange={handleCardTypeChange}
                 className="w-full rounded-lg border border-slate-300 px-4 py-3 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
               >
                 <option value="CREDIT">
@@ -231,6 +265,37 @@ function AddCard() {
               </select>
 
             </div>
+
+
+            {formData.card_type === "CREDIT" && (
+              <div>
+
+                <label
+                  htmlFor="credit_limit"
+                  className="mb-2 block text-sm font-medium text-slate-700"
+                >
+                  Credit Limit
+                </label>
+
+                <input
+                  id="credit_limit"
+                  name="credit_limit"
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  value={formData.credit_limit}
+                  onChange={handleChange}
+                  required
+                  placeholder="Enter credit limit"
+                  className="w-full rounded-lg border border-slate-300 px-4 py-3 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                />
+
+                <p className="mt-1 text-xs text-slate-500">
+                  Example: 100000 for a ₹1,00,000 credit limit.
+                </p>
+
+              </div>
+            )}
 
 
             <div>
@@ -408,13 +473,30 @@ function AddCard() {
                     </div>
 
 
-                    <div className="mt-5 flex items-center justify-between">
+                    <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
 
                       <div className="text-sm text-slate-500">
                         Expires{" "}
                         {card.expiry_month}/
                         {card.expiry_year}
                       </div>
+
+                      {card.card_type === "CREDIT" && (
+                        <div className="text-sm font-medium text-slate-700">
+                          Credit Limit: ₹
+                          {Number(
+                            card.credit_limit || 0
+                          ).toLocaleString("en-IN", {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
+                        </div>
+                      )}
+
+                    </div>
+
+
+                    <div className="mt-5 flex items-center justify-end">
 
                       <button
                         type="button"
@@ -437,6 +519,7 @@ function AddCard() {
           </div>
 
         </div>
+
 
       </main>
 

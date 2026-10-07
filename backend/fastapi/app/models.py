@@ -58,6 +58,12 @@ class Card(Base):
         nullable=False,
     )
 
+    credit_limit = Column(
+        Numeric(12, 2),
+        nullable=False,
+        default=0,
+    )
+
     is_active = Column(
         Boolean,
         nullable=False,
