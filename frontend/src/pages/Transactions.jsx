@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import Navbar from "../components/Navbar";
+
 import { djangoApi } from "../api";
 
 
@@ -16,6 +17,7 @@ function Transactions() {
   });
 
   const [loading, setLoading] = useState(true);
+
   const [error, setError] = useState("");
 
 
@@ -64,7 +66,6 @@ function Transactions() {
       setTransactions(
         response.data || []
       );
-
     } catch (error) {
       setError(
         "Unable to load transactions."
@@ -127,39 +128,44 @@ function Transactions() {
     status
   ) => {
     if (status === "SUCCESS") {
-      return "bg-green-100 text-green-700";
+      return "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300";
     }
 
     if (status === "FAILED") {
-      return "bg-red-100 text-red-700";
+      return "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300";
     }
 
-    return "bg-yellow-100 text-yellow-700";
+    return "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300";
   };
 
 
   return (
-    <div className="min-h-screen bg-slate-100">
+    <div className="theme-transition min-h-screen bg-slate-100 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
 
       <Navbar />
 
+
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+
+        {/* PAGE HEADER */}
 
         <div className="mb-8">
 
-          <h1 className="text-3xl font-bold text-slate-900">
+          <h1 className="text-3xl font-bold text-slate-900 dark:text-white">
             Transaction History
           </h1>
 
-          <p className="mt-2 text-slate-600">
+          <p className="mt-2 text-slate-600 dark:text-slate-400">
             View and filter your payment transactions.
           </p>
 
         </div>
 
 
+        {/* ERROR */}
+
         {error && (
-          <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-700">
+          <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300">
             {error}
           </div>
         )}
@@ -167,21 +173,25 @@ function Transactions() {
 
         {/* FILTERS */}
 
-        <div className="rounded-xl bg-white p-6 shadow-sm">
+        <div className="rounded-xl bg-white p-6 shadow-sm dark:bg-slate-800">
 
-          <h2 className="text-lg font-bold text-slate-900">
+          <h2 className="text-lg font-bold text-slate-900 dark:text-white">
             Filters
           </h2>
+
 
           <form
             onSubmit={handleFilter}
             className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-5"
           >
 
+            {/* STATUS */}
+
             <div>
+
               <label
                 htmlFor="status"
-                className="mb-2 block text-sm font-medium text-slate-700"
+                className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300"
               >
                 Status
               </label>
@@ -191,8 +201,9 @@ function Transactions() {
                 name="status"
                 value={filters.status}
                 onChange={handleChange}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-blue-400 dark:focus:ring-blue-900/30"
               >
+
                 <option value="">
                   All Statuses
                 </option>
@@ -208,14 +219,19 @@ function Transactions() {
                 <option value="PENDING">
                   Pending
                 </option>
+
               </select>
+
             </div>
 
 
+            {/* FROM DATE */}
+
             <div>
+
               <label
                 htmlFor="start_date"
-                className="mb-2 block text-sm font-medium text-slate-700"
+                className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300"
               >
                 From Date
               </label>
@@ -224,17 +240,25 @@ function Transactions() {
                 id="start_date"
                 name="start_date"
                 type="date"
-                value={filters.start_date}
-                onChange={handleChange}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                value={
+                  filters.start_date
+                }
+                onChange={
+                  handleChange
+                }
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-blue-400 dark:focus:ring-blue-900/30"
               />
+
             </div>
 
 
+            {/* TO DATE */}
+
             <div>
+
               <label
                 htmlFor="end_date"
-                className="mb-2 block text-sm font-medium text-slate-700"
+                className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300"
               >
                 To Date
               </label>
@@ -243,17 +267,25 @@ function Transactions() {
                 id="end_date"
                 name="end_date"
                 type="date"
-                value={filters.end_date}
-                onChange={handleChange}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                value={
+                  filters.end_date
+                }
+                onChange={
+                  handleChange
+                }
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-blue-400 dark:focus:ring-blue-900/30"
               />
+
             </div>
 
 
+            {/* MIN AMOUNT */}
+
             <div>
+
               <label
                 htmlFor="min_amount"
-                className="mb-2 block text-sm font-medium text-slate-700"
+                className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300"
               >
                 Min Amount
               </label>
@@ -264,18 +296,26 @@ function Transactions() {
                 type="number"
                 min="0"
                 step="0.01"
-                value={filters.min_amount}
-                onChange={handleChange}
+                value={
+                  filters.min_amount
+                }
+                onChange={
+                  handleChange
+                }
                 placeholder="0"
-                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-blue-400 dark:focus:ring-blue-900/30"
               />
+
             </div>
 
 
+            {/* MAX AMOUNT */}
+
             <div>
+
               <label
                 htmlFor="max_amount"
-                className="mb-2 block text-sm font-medium text-slate-700"
+                className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300"
               >
                 Max Amount
               </label>
@@ -286,27 +326,36 @@ function Transactions() {
                 type="number"
                 min="0"
                 step="0.01"
-                value={filters.max_amount}
-                onChange={handleChange}
+                value={
+                  filters.max_amount
+                }
+                onChange={
+                  handleChange
+                }
                 placeholder="1000000"
-                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-blue-400 dark:focus:ring-blue-900/30"
               />
+
             </div>
 
 
-            <div className="md:col-span-2 lg:col-span-5 flex flex-wrap gap-3">
+            {/* FILTER BUTTONS */}
+
+            <div className="flex flex-wrap gap-3 md:col-span-2 lg:col-span-5">
 
               <button
                 type="submit"
-                className="rounded-lg bg-blue-600 px-5 py-2.5 font-semibold text-white hover:bg-blue-700"
+                className="rounded-lg bg-blue-600 px-5 py-2.5 font-semibold text-white transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-slate-800"
               >
                 Apply Filters
               </button>
 
               <button
                 type="button"
-                onClick={handleReset}
-                className="rounded-lg border border-slate-300 bg-white px-5 py-2.5 font-semibold text-slate-700 hover:bg-slate-50"
+                onClick={
+                  handleReset
+                }
+                className="rounded-lg border border-slate-300 bg-white px-5 py-2.5 font-semibold text-slate-700 transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-700 dark:focus:ring-offset-slate-800"
               >
                 Reset
               </button>
@@ -320,18 +369,20 @@ function Transactions() {
 
         {/* TRANSACTIONS */}
 
-        <div className="mt-8 rounded-xl bg-white shadow-sm">
+        <div className="mt-8 rounded-xl bg-white shadow-sm dark:bg-slate-800">
 
-          <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+          <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4 dark:border-slate-700">
 
             <div>
-              <h2 className="text-xl font-bold text-slate-900">
+
+              <h2 className="text-xl font-bold text-slate-900 dark:text-white">
                 Transactions
               </h2>
 
-              <p className="mt-1 text-sm text-slate-500">
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
                 {transactions.length} transaction(s)
               </p>
+
             </div>
 
           </div>
@@ -339,46 +390,50 @@ function Transactions() {
 
           {loading ? (
             <div className="px-6 py-12 text-center">
-              <p className="text-slate-500">
+
+              <p className="text-slate-500 dark:text-slate-400">
                 Loading transactions...
               </p>
+
             </div>
           ) : transactions.length === 0 ? (
             <div className="px-6 py-12 text-center">
-              <p className="text-slate-500">
+
+              <p className="text-slate-500 dark:text-slate-400">
                 No transactions found.
               </p>
+
             </div>
           ) : (
             <div className="overflow-x-auto">
 
               <table className="min-w-full text-left text-sm">
 
-                <thead className="bg-slate-50 text-slate-500">
+                <thead className="bg-slate-50 text-slate-500 dark:bg-slate-900 dark:text-slate-400">
 
                   <tr>
 
-                    <th className="px-6 py-3 font-medium">
+                    <th className="whitespace-nowrap px-6 py-3 font-medium">
                       Reference
                     </th>
 
-                    <th className="px-6 py-3 font-medium">
+                    <th className="whitespace-nowrap px-6 py-3 font-medium">
                       Card
                     </th>
 
-                    <th className="px-6 py-3 font-medium">
+                    <th className="whitespace-nowrap px-6 py-3 font-medium">
                       Amount
                     </th>
 
-                    <th className="px-6 py-3 font-medium">
+                    <th className="whitespace-nowrap px-6 py-3 font-medium">
                       Status
                     </th>
 
-                    <th className="px-6 py-3 font-medium">
+                    <th className="whitespace-nowrap px-6 py-3 font-medium">
                       Description
                     </th>
 
-                    <th className="px-6 py-3 font-medium">
+                    <th className="whitespace-nowrap px-6 py-3 font-medium">
                       Date
                     </th>
 
@@ -391,22 +446,23 @@ function Transactions() {
 
                   {transactions.map(
                     (transaction) => (
+
                       <tr
                         key={transaction.id}
-                        className="border-t border-slate-100"
+                        className="border-t border-slate-100 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-900/60"
                       >
 
-                        <td className="px-6 py-4 font-medium text-slate-900">
+                        <td className="whitespace-nowrap px-6 py-4 font-medium text-slate-900 dark:text-white">
                           {transaction.reference}
                         </td>
 
 
-                        <td className="px-6 py-4 text-slate-600">
+                        <td className="whitespace-nowrap px-6 py-4 text-slate-600 dark:text-slate-300">
                           {transaction.card_number}
                         </td>
 
 
-                        <td className="px-6 py-4 font-medium text-slate-700">
+                        <td className="whitespace-nowrap px-6 py-4 font-medium text-slate-700 dark:text-slate-200">
                           {transaction.amount}{" "}
                           {transaction.currency}
                         </td>
@@ -419,25 +475,28 @@ function Transactions() {
                               transaction.status
                             )}`}
                           >
-                            {transaction.status}
+                            {
+                              transaction.status
+                            }
                           </span>
 
                         </td>
 
 
-                        <td className="px-6 py-4 text-slate-600">
+                        <td className="px-6 py-4 text-slate-600 dark:text-slate-300">
                           {transaction.description ||
                             "—"}
                         </td>
 
 
-                        <td className="px-6 py-4 text-slate-500">
+                        <td className="whitespace-nowrap px-6 py-4 text-slate-500 dark:text-slate-400">
                           {new Date(
                             transaction.created_at
                           ).toLocaleString()}
                         </td>
 
                       </tr>
+
                     )
                   )}
 
@@ -449,6 +508,7 @@ function Transactions() {
           )}
 
         </div>
+
 
       </main>
 

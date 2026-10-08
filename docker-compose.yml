@@ -17,7 +17,17 @@ services:
     volumes:
       - mysql_data:/var/lib/mysql
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      test:
+        [
+          "CMD",
+          "mysqladmin",
+          "ping",
+          "-h",
+          "localhost",
+          "-u",
+          "root",
+          "-p${MYSQL_ROOT_PASSWORD}",
+        ]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -38,8 +48,20 @@ services:
       DB_PASSWORD: ${MYSQL_PASSWORD}
       DB_HOST: mysql
       DB_PORT: 3306
+
       SECRET_KEY: ${DJANGO_SECRET_KEY}
       JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+
+      # Email notification settings
+      EMAIL_NOTIFICATIONS_ENABLED: ${EMAIL_NOTIFICATIONS_ENABLED:-False}
+      EMAIL_BACKEND: ${EMAIL_BACKEND:-django.core.mail.backends.smtp.EmailBackend}
+      EMAIL_HOST: ${EMAIL_HOST:-}
+      EMAIL_PORT: ${EMAIL_PORT:-587}
+      EMAIL_HOST_USER: ${EMAIL_HOST_USER:-}
+      EMAIL_HOST_PASSWORD: ${EMAIL_HOST_PASSWORD:-}
+      EMAIL_USE_TLS: ${EMAIL_USE_TLS:-True}
+      EMAIL_USE_SSL: ${EMAIL_USE_SSL:-False}
+      DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-}
     command: >
       sh -c "python manage.py migrate &&
       gunicorn config.wsgi:application --bind 0.0.0.0:8000"
@@ -62,8 +84,19 @@ services:
       DB_PASSWORD: ${MYSQL_PASSWORD}
       DB_HOST: mysql
       DB_PORT: 3306
+
       JWT_SECRET_KEY: ${JWT_SECRET_KEY}
       JWT_ALGORITHM: HS256
+
+      # Email notification settings
+      EMAIL_NOTIFICATIONS_ENABLED: ${EMAIL_NOTIFICATIONS_ENABLED:-False}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL:-}
+      SMTP_USE_TLS: ${SMTP_USE_TLS:-True}
+      SMTP_USE_SSL: ${SMTP_USE_SSL:-False}
     ports:
       - "8001:8001"
 

@@ -13,6 +13,21 @@ class Settings(BaseSettings):
 
     PAYMENT_SUCCESS_RATE: int = 80
 
+    # =====================================================
+    # EMAIL NOTIFICATIONS
+    # =====================================================
+
+    EMAIL_NOTIFICATIONS_ENABLED: bool = False
+
+    SMTP_HOST: str = ""
+    SMTP_PORT: int = 587
+    SMTP_USERNAME: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_FROM_EMAIL: str = ""
+
+    SMTP_USE_TLS: bool = True
+    SMTP_USE_SSL: bool = False
+
     model_config = SettingsConfigDict(
         env_file=".env",
         case_sensitive=True,

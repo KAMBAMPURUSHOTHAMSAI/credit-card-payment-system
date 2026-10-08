@@ -2,6 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
+
 :root {
   font-family:
     Inter,
@@ -15,16 +16,37 @@
   background: #f8fafc;
 }
 
+
 * {
   box-sizing: border-box;
 }
+
+
+html {
+  background: #f8fafc;
+}
+
+
+html.dark {
+  color-scheme: dark;
+  background: #0f172a;
+}
+
 
 body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
   background: #f8fafc;
+  color: #111827;
 }
+
+
+html.dark body {
+  background: #0f172a;
+  color: #e2e8f0;
+}
+
 
 button,
 input,
@@ -33,6 +55,34 @@ textarea {
   font: inherit;
 }
 
+
 button {
   cursor: pointer;
+}
+
+
+/* =========================================================
+   THEME TRANSITION
+   ========================================================= */
+
+.theme-transition,
+.theme-transition * {
+  transition-property:
+    background-color,
+    color,
+    border-color;
+  transition-duration: 200ms;
+  transition-timing-function: ease;
+}
+
+
+/* =========================================================
+   REDUCED MOTION ACCESSIBILITY
+   ========================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+  .theme-transition,
+  .theme-transition * {
+    transition-duration: 0ms !important;
+  }
 }

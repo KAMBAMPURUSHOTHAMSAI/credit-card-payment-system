@@ -4,7 +4,7 @@ import PaymentForm from "../components/PaymentForm";
 
 function MakePayment() {
   return (
-    <div className="min-h-screen bg-slate-100">
+    <div className="theme-transition min-h-screen bg-slate-100 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
 
       <Navbar />
 
@@ -12,11 +12,11 @@ function MakePayment() {
 
         <div className="mb-8">
 
-          <h1 className="text-3xl font-bold text-slate-900">
+          <h1 className="text-3xl font-bold text-slate-900 dark:text-white">
             Make Payment
           </h1>
 
-          <p className="mt-2 text-slate-600">
+          <p className="mt-2 text-slate-600 dark:text-slate-400">
             Make a secure simulated payment using your saved card.
           </p>
 

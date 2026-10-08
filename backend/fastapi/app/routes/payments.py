@@ -3,15 +3,22 @@ from decimal import Decimal
 
 from fastapi import (
     APIRouter,
+    BackgroundTasks,
     Depends,
     HTTPException,
     status,
 )
+
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from ..auth import get_current_user
 from ..db import get_db
-from ..models import Card, Transaction
+from ..models import Card, Transaction, User
+from ..notifications import (
+    send_high_value_transaction_alert,
+    send_low_credit_alert,
+)
 from ..payment_service import simulate_payment
 from ..schemas import (
     PaymentRequest,
@@ -32,6 +39,7 @@ router = APIRouter(
 )
 def make_payment(
     payload: PaymentRequest,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
@@ -117,7 +125,148 @@ def make_payment(
     db.refresh(transaction)
 
     # =====================================================
-    # 5. RETURN FINAL RESULT
+    # 5. EMAIL NOTIFICATIONS
+    #
+    # Emails are scheduled only after the transaction
+    # has been successfully committed.
+    # =====================================================
+
+    if payment_status == "SUCCESS":
+
+        # -------------------------------------------------
+        # GET USER EMAIL
+        # -------------------------------------------------
+
+        user_email = (
+            db.query(User.email)
+            .filter(
+                User.id == user_id
+            )
+            .scalar()
+        )
+
+        # -------------------------------------------------
+        # CALCULATE SUCCESSFUL SPENDING
+        # -------------------------------------------------
+
+        successful_spent = (
+            db.query(
+                func.coalesce(
+                    func.sum(
+                        Transaction.amount
+                    ),
+                    0,
+                )
+            )
+            .filter(
+                Transaction.card_id == card.id,
+                Transaction.status == "SUCCESS",
+            )
+            .scalar()
+        )
+
+        if successful_spent is None:
+            successful_spent = Decimal(
+                "0.00"
+            )
+
+        successful_spent = Decimal(
+            str(successful_spent)
+        )
+
+        # -------------------------------------------------
+        # HIGH VALUE TRANSACTION ALERT
+        # -------------------------------------------------
+
+        if (
+            user_email
+            and transaction.amount > Decimal("5000.00")
+        ):
+            background_tasks.add_task(
+                send_high_value_transaction_alert,
+                user_email,
+                transaction.amount,
+                card.masked_number,
+                transaction.reference,
+            )
+
+        # -------------------------------------------------
+        # LOW CREDIT ALERT
+        #
+        # Trigger only when available credit crosses
+        # from >= 10% to < 10%.
+        # -------------------------------------------------
+
+        if (
+            user_email
+            and card.card_type == "CREDIT"
+            and card.credit_limit > Decimal("0.00")
+        ):
+
+            available_credit = (
+                card.credit_limit
+                - successful_spent
+            )
+
+            if available_credit < Decimal("0.00"):
+                available_credit = Decimal(
+                    "0.00"
+                )
+
+            # Spending before the current transaction.
+            previous_successful_spent = (
+                successful_spent
+                - transaction.amount
+            )
+
+            if previous_successful_spent < Decimal(
+                "0.00"
+            ):
+                previous_successful_spent = Decimal(
+                    "0.00"
+                )
+
+            previous_available_credit = (
+                card.credit_limit
+                - previous_successful_spent
+            )
+
+            if previous_available_credit < Decimal(
+                "0.00"
+            ):
+                previous_available_credit = Decimal(
+                    "0.00"
+                )
+
+            previous_available_percentage = (
+                previous_available_credit
+                / card.credit_limit
+            )
+
+            current_available_percentage = (
+                available_credit
+                / card.credit_limit
+            )
+
+            crossed_low_credit_threshold = (
+                previous_available_percentage
+                >= Decimal("0.10")
+                and current_available_percentage
+                < Decimal("0.10")
+            )
+
+            if crossed_low_credit_threshold:
+
+                background_tasks.add_task(
+                    send_low_credit_alert,
+                    user_email,
+                    available_credit,
+                    card.credit_limit,
+                    card.masked_number,
+                )
+
+    # =====================================================
+    # 6. RETURN FINAL RESULT
     # =====================================================
 
     return PaymentResponse(

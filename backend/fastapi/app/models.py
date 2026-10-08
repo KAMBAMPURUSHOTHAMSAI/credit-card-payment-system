@@ -15,6 +15,27 @@ from sqlalchemy.orm import relationship
 from .db import Base
 
 
+class User(Base):
+    """
+    Read-only mapping of the existing Django user table.
+
+    FastAPI uses this mapping only to retrieve the
+    authenticated user's email for notifications.
+    """
+
+    __tablename__ = "accounts_user"
+
+    id = Column(
+        Integer,
+        primary_key=True,
+    )
+
+    email = Column(
+        String(254),
+        nullable=False,
+    )
+
+
 class Card(Base):
     __tablename__ = "payments_card"
 

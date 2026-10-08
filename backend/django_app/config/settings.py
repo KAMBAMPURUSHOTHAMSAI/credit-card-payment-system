@@ -28,7 +28,10 @@ SECRET_KEY = os.getenv(
     "django-development-secret-key",
 )
 
-DEBUG = os.getenv("DEBUG", "True").lower() == "true"
+DEBUG = os.getenv(
+    "DEBUG",
+    "True",
+).lower() == "true"
 
 ALLOWED_HOSTS = [
     "localhost",
@@ -323,3 +326,55 @@ FASTAPI_URL = os.getenv(
     "FASTAPI_URL",
     "http://localhost:8001",
 )
+
+
+# =========================================================
+# EMAIL NOTIFICATIONS
+# =========================================================
+
+EMAIL_BACKEND = os.getenv(
+    "EMAIL_BACKEND",
+    "django.core.mail.backends.smtp.EmailBackend",
+)
+
+EMAIL_HOST = os.getenv(
+    "EMAIL_HOST",
+    "",
+)
+
+EMAIL_PORT = int(
+    os.getenv(
+        "EMAIL_PORT",
+        "587",
+    )
+)
+
+EMAIL_HOST_USER = os.getenv(
+    "EMAIL_HOST_USER",
+    "",
+)
+
+EMAIL_HOST_PASSWORD = os.getenv(
+    "EMAIL_HOST_PASSWORD",
+    "",
+)
+
+EMAIL_USE_TLS = os.getenv(
+    "EMAIL_USE_TLS",
+    "True",
+).lower() == "true"
+
+EMAIL_USE_SSL = os.getenv(
+    "EMAIL_USE_SSL",
+    "False",
+).lower() == "true"
+
+DEFAULT_FROM_EMAIL = os.getenv(
+    "DEFAULT_FROM_EMAIL",
+    EMAIL_HOST_USER,
+)
+
+EMAIL_NOTIFICATIONS_ENABLED = os.getenv(
+    "EMAIL_NOTIFICATIONS_ENABLED",
+    "False",
+).lower() == "true"
