@@ -24,3 +24,8 @@ npm-debug.log*
 
 # Logs
 *.log
+
+# Local SQL recovery backups - do not commit
+/credit_card_payment_system_backup.sql
+/database/credit_card_payment_system_recovery_backup.sql
+/database/credit_card_payment_system_recovery_utf8.sql

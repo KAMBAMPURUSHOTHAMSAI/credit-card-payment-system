@@ -345,4 +345,5 @@ def make_payment(
         description=transaction.description,
         failure_reason=transaction.failure_reason,
         fraud_status=transaction.fraud_status,
+        category=transaction.category,
     )
