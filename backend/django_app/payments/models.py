@@ -1,3 +1,4 @@
+
 from django.conf import settings
 from django.db import models
 
@@ -43,23 +44,18 @@ class Card(models.Model):
     )
 
     is_active = models.BooleanField(
-        default=True
+        default=True,
     )
 
     created_at = models.DateTimeField(
-        auto_now_add=True
+        auto_now_add=True,
     )
 
     class Meta:
-        ordering = [
-            "-created_at"
-        ]
+        ordering = ["-created_at"]
 
     def __str__(self):
-        return (
-            f"{self.card_brand} "
-            f"****{self.last4}"
-        )
+        return f"{self.card_brand} ****{self.last4}"
 
 
 class Transaction(models.Model):
@@ -68,6 +64,13 @@ class Transaction(models.Model):
         ("PENDING", "Pending"),
         ("SUCCESS", "Success"),
         ("FAILED", "Failed"),
+    ]
+
+    FRAUD_STATUS_CHOICES = [
+        ("NOT_CHECKED", "Not Checked"),
+        ("CLEAR", "Clear"),
+        ("FLAGGED", "Flagged"),
+        ("REVIEWED", "Reviewed"),
     ]
 
     user = models.ForeignKey(
@@ -98,6 +101,35 @@ class Transaction(models.Model):
         default="PENDING",
     )
 
+    # Fraud detection result
+    fraud_status = models.CharField(
+        max_length=15,
+        choices=FRAUD_STATUS_CHOICES,
+        default="NOT_CHECKED",
+        db_index=True,
+    )
+
+    # Used for category-wise spending analytics
+    category = models.CharField(
+        max_length=50,
+        default="OTHER",
+        blank=True,
+        db_index=True,
+    )
+
+    # Optional context for fraud detection
+    location = models.CharField(
+        max_length=100,
+        blank=True,
+        default="",
+    )
+
+    device_id = models.CharField(
+        max_length=128,
+        blank=True,
+        default="",
+    )
+
     reference = models.CharField(
         max_length=64,
         unique=True,
@@ -114,23 +146,29 @@ class Transaction(models.Model):
     )
 
     created_at = models.DateTimeField(
-        auto_now_add=True
+        auto_now_add=True,
+        db_index=True,
     )
 
     updated_at = models.DateTimeField(
-        auto_now=True
+        auto_now=True,
     )
 
     class Meta:
-        ordering = [
-            "-created_at"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(
+                fields=["user", "-created_at"],
+                name="txn_user_created_idx",
+            ),
+            models.Index(
+                fields=["status", "-created_at"],
+                name="txn_status_created_idx",
+            ),
         ]
 
     def __str__(self):
-        return (
-            f"{self.reference} - "
-            f"{self.status}"
-        )
+        return f"{self.reference} - {self.status}"
 
 
 class AdminLog(models.Model):
@@ -142,7 +180,7 @@ class AdminLog(models.Model):
     )
 
     action = models.CharField(
-        max_length=100
+        max_length=100,
     )
 
     target = models.CharField(
@@ -156,16 +194,76 @@ class AdminLog(models.Model):
     )
 
     created_at = models.DateTimeField(
-        auto_now_add=True
+        auto_now_add=True,
     )
 
     class Meta:
-        ordering = [
-            "-created_at"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.admin.username} - {self.action}"
+
+
+class FraudLog(models.Model):
+    """
+    Records suspicious transaction activity and the rule
+    that triggered the fraud alert.
+    """
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="fraud_logs",
+    )
+
+    transaction = models.ForeignKey(
+        Transaction,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="fraud_logs",
+    )
+
+    rule_code = models.CharField(
+        max_length=100,
+    )
+
+    details = models.TextField(
+        blank=True,
+    )
+
+    ip_address = models.GenericIPAddressField(
+        null=True,
+        blank=True,
+    )
+
+    location = models.CharField(
+        max_length=100,
+        blank=True,
+        default="",
+    )
+
+    device_id = models.CharField(
+        max_length=128,
+        blank=True,
+        default="",
+    )
+
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        db_index=True,
+    )
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(
+                fields=["rule_code", "-created_at"],
+                name="fraud_rule_created_idx",
+            ),
         ]
 
     def __str__(self):
-        return (
-            f"{self.admin.username} - "
-            f"{self.action}"
-        )
+        return f"{self.rule_code} - {self.created_at}"

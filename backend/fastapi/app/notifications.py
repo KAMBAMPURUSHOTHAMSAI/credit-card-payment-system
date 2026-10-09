@@ -1,3 +1,4 @@
+
 import logging
 import smtplib
 import ssl
@@ -13,7 +14,6 @@ logger = logging.getLogger(__name__)
 # HELPER FUNCTION
 # =========================================================
 
-
 def _send_notification_email(
     recipient: str,
     subject: str,
@@ -22,11 +22,7 @@ def _send_notification_email(
     """
     Send an email using the configured SMTP server.
 
-    Returns:
-        True  -> email sent successfully
-        False -> email disabled, recipient missing,
-                 configuration missing, or sending failed
-
+    Returns True when sent successfully; otherwise False.
     Email failures must never break the payment flow.
     """
 
@@ -50,11 +46,9 @@ def _send_notification_email(
 
     try:
         email = EmailMessage()
-
         email["From"] = settings.SMTP_FROM_EMAIL
         email["To"] = recipient
         email["Subject"] = subject
-
         email.set_content(message)
 
         if settings.SMTP_USE_SSL:
@@ -86,11 +80,7 @@ def _send_notification_email(
 
                 if settings.SMTP_USE_TLS:
                     context = ssl.create_default_context()
-
-                    server.starttls(
-                        context=context
-                    )
-
+                    server.starttls(context=context)
                     server.ehlo()
 
                 if settings.SMTP_USERNAME:
@@ -104,10 +94,7 @@ def _send_notification_email(
         return True
 
     except Exception:
-        logger.exception(
-            "Email notification failed."
-        )
-
+        logger.exception("Email notification failed.")
         return False
 
 
@@ -115,21 +102,15 @@ def _send_notification_email(
 # HIGH VALUE TRANSACTION ALERT
 # =========================================================
 
-
 def send_high_value_transaction_alert(
     recipient: str,
     amount,
     card_display: str,
     reference: str,
 ) -> bool:
-    """
-    Send an alert for a successful transaction
-    greater than INR 5,000.
-    """
+    """Alert the user about a successful transaction above INR 5,000."""
 
-    subject = (
-        "CreditPay - High Value Transaction Alert"
-    )
+    subject = "CreditPay - High Value Transaction Alert"
 
     message = (
         "Hello,\n\n"
@@ -138,8 +119,8 @@ def send_high_value_transaction_alert(
         f"Amount: INR {amount:,.2f}\n"
         f"Card: {card_display}\n"
         f"Reference: {reference}\n\n"
-        "This alert was generated because the "
-        "transaction amount is greater than INR 5,000.\n\n"
+        "This alert was generated because the transaction "
+        "amount is greater than INR 5,000.\n\n"
         "If you do not recognize this transaction, "
         "please contact the support team immediately.\n\n"
         "Regards,\n"
@@ -157,46 +138,81 @@ def send_high_value_transaction_alert(
 # LOW CREDIT ALERT
 # =========================================================
 
-
 def send_low_credit_alert(
     recipient: str,
     available_credit,
     credit_limit,
     card_display: str,
 ) -> bool:
-    """
-    Send an alert when available credit falls
-    below 10 percent of the credit limit.
-    """
+    """Alert the user when available credit falls below 10%."""
 
     if credit_limit:
         available_percentage = (
-            (
-                available_credit
-                / credit_limit
-            )
-            * 100
-        )
+            available_credit / credit_limit
+        ) * 100
     else:
         available_percentage = 0
 
-    subject = (
-        "CreditPay - Low Available Credit Alert"
-    )
+    subject = "CreditPay - Low Available Credit Alert"
 
     message = (
         "Hello,\n\n"
         "Your available credit has fallen "
         "below 10% of your credit limit.\n\n"
         f"Card: {card_display}\n"
-        f"Available Credit: "
-        f"INR {available_credit:,.2f}\n"
-        f"Credit Limit: "
-        f"INR {credit_limit:,.2f}\n"
-        f"Available Credit Percentage: "
-        f"{available_percentage:.2f}%\n\n"
+        f"Available Credit: INR {available_credit:,.2f}\n"
+        f"Credit Limit: INR {credit_limit:,.2f}\n"
+        f"Available Credit Percentage: {available_percentage:.2f}%\n\n"
         "Please review your recent spending "
         "before making additional transactions.\n\n"
+        "Regards,\n"
+        "CreditPay"
+    )
+
+    return _send_notification_email(
+        recipient=recipient,
+        subject=subject,
+        message=message,
+    )
+
+
+# =========================================================
+# FRAUD DETECTION ALERT
+# =========================================================
+
+def send_fraud_alert(
+    recipient: str,
+    card_display: str,
+    amount,
+    reference: str,
+    payment_status: str,
+    rule_details: str,
+    ip_address: str = "",
+) -> bool:
+    """
+    Alert the user when a transaction is flagged by
+    the rule-based fraud detection service.
+    """
+
+    subject = "CreditPay - Suspicious Transaction Alert"
+
+    message = (
+        "Hello,\n\n"
+        "CreditPay has detected suspicious activity "
+        "associated with a payment attempt.\n\n"
+        f"Amount: INR {amount:,.2f}\n"
+        f"Card: {card_display}\n"
+        f"Reference: {reference}\n"
+        f"Payment Status: {payment_status}\n"
+        f"Detection Details: {rule_details}\n"
+    )
+
+    if ip_address:
+        message += f"Source IP: {ip_address}\n"
+
+    message += (
+        "\nIf you do not recognize this activity, "
+        "please contact the support team immediately.\n\n"
         "Regards,\n"
         "CreditPay"
     )

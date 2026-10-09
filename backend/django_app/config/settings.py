@@ -78,6 +78,9 @@ MIDDLEWARE = [
 
     "django.middleware.common.CommonMiddleware",
 
+    # API response-time and failure logging
+    "config.middleware.RequestMonitoringMiddleware",
+
     "django.middleware.csrf.CsrfViewMiddleware",
 
     "django.contrib.auth.middleware.AuthenticationMiddleware",
@@ -260,6 +263,7 @@ REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": (
         "drf_spectacular.openapi.AutoSchema"
     ),
+    "URL_FORMAT_OVERRIDE": None,
 }
 
 
@@ -378,3 +382,48 @@ EMAIL_NOTIFICATIONS_ENABLED = os.getenv(
     "EMAIL_NOTIFICATIONS_ENABLED",
     "False",
 ).lower() == "true"
+
+
+# =========================================================
+# APPLICATION LOGGING
+# =========================================================
+
+LOGGING = {
+    "version": 1,
+
+    "disable_existing_loggers": False,
+
+    "formatters": {
+        "standard": {
+            "format": (
+                "%(asctime)s "
+                "%(levelname)s "
+                "%(name)s: "
+                "%(message)s"
+            ),
+        },
+    },
+
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "standard",
+        },
+    },
+
+    "loggers": {
+        # Application request monitoring
+        "api.monitoring": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": False,
+        },
+
+        # Django HTTP request errors
+        "django.request": {
+            "handlers": ["console"],
+            "level": "WARNING",
+            "propagate": False,
+        },
+    },
+}

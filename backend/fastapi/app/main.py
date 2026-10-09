@@ -1,7 +1,9 @@
 from datetime import datetime
 from decimal import Decimal
+import logging
+from time import perf_counter
 
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from sqlalchemy import func
@@ -13,6 +15,25 @@ from .models import Card, Transaction
 from .routes.payments import router as payment_router
 
 
+# =========================================================
+# LOGGING CONFIGURATION
+# =========================================================
+
+logging.basicConfig(
+    level=logging.INFO,
+    format=(
+        "%(asctime)s %(levelname)s "
+        "%(name)s: %(message)s"
+    ),
+)
+
+logger = logging.getLogger("api.monitoring")
+
+
+# =========================================================
+# FASTAPI APPLICATION
+# =========================================================
+
 app = FastAPI(
     title="Credit Card Payment System - Payment API",
     description=(
@@ -22,6 +43,10 @@ app = FastAPI(
     version="1.0.0",
 )
 
+
+# =========================================================
+# CORS CONFIGURATION
+# =========================================================
 
 app.add_middleware(
     CORSMiddleware,
@@ -35,8 +60,85 @@ app.add_middleware(
 )
 
 
+# =========================================================
+# API REQUEST-TIME AND ERROR MONITORING
+# =========================================================
+
+@app.middleware("http")
+async def request_monitoring_middleware(
+    request: Request,
+    call_next,
+):
+    start_time = perf_counter()
+
+    try:
+        response = await call_next(request)
+
+    except Exception:
+        duration_ms = (
+            perf_counter() - start_time
+        ) * 1000
+
+        logger.exception(
+            "FastAPI request exception: "
+            "method=%s path=%s duration_ms=%.2f",
+            request.method,
+            request.url.path,
+            duration_ms,
+        )
+
+        raise
+
+    duration_ms = (
+        perf_counter() - start_time
+    ) * 1000
+
+    status_code = response.status_code
+
+    log_message = (
+        "FastAPI request: "
+        "method=%s path=%s "
+        "status=%s duration_ms=%.2f"
+    )
+
+    log_values = (
+        request.method,
+        request.url.path,
+        status_code,
+        duration_ms,
+    )
+
+    if status_code >= 500:
+        logger.error(
+            log_message,
+            *log_values,
+        )
+
+    elif status_code >= 400:
+        logger.warning(
+            log_message,
+            *log_values,
+        )
+
+    else:
+        logger.info(
+            log_message,
+            *log_values,
+        )
+
+    return response
+
+
+# =========================================================
+# PAYMENT ROUTER
+# =========================================================
+
 app.include_router(payment_router)
 
+
+# =========================================================
+# DASHBOARD SUMMARY
+# =========================================================
 
 @app.get(
     "/dashboard/summary",
@@ -250,6 +352,10 @@ def dashboard_summary(
         "last_5_transactions": last_5_transactions,
     }
 
+
+# =========================================================
+# HEALTH CHECK
+# =========================================================
 
 @app.get("/health", tags=["Health"])
 def health_check():

@@ -1,8 +1,8 @@
 ﻿{
   "info": {
     "_postman_id": "d3f3a4df-65f8-4aef-9f5d-credit-card-payment-system",
-    "name": "Credit Card Payment System",
-    "description": "Postman collection for the Credit Card Payment System. Django handles authentication, cards, transactions and admin APIs; FastAPI handles payment processing.",
+    "name": "Credit Card Payment System - Updated",
+    "description": "Updated Postman collection for the Credit Card Payment System. Django handles authentication, cards, transactions and admin APIs; FastAPI handles payment processing. Set user/admin credentials locally before use. Admin requests use admin_access_token. Run the two Fraud Detection requests in order, using the same user token and card, within five minutes.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -44,7 +44,48 @@
     },
     {
       "key": "card_id",
-      "value": ""
+      "value": "2",
+      "description": "Active card owned by the logged-in normal user; Add Credit Card request replaces this value on success."
+    },
+    {
+      "key": "admin_username",
+      "value": "replace-with-superuser-username",
+      "description": "Django superuser username; do not share credentials."
+    },
+    {
+      "key": "admin_password",
+      "value": "replace-with-superuser-password",
+      "description": "Django superuser password; keep only in your local Postman collection/environment."
+    },
+    {
+      "key": "admin_access_token",
+      "value": "",
+      "description": "Captured by Admin Login request."
+    },
+    {
+      "key": "admin_card_id",
+      "value": "2",
+      "description": "Card ID to manage in the admin requests; update for your environment."
+    },
+    {
+      "key": "fraud_location_a",
+      "value": "FraudTestLocationA"
+    },
+    {
+      "key": "fraud_location_b",
+      "value": "FraudTestLocationB"
+    },
+    {
+      "key": "fraud_device_a",
+      "value": "FraudTestDeviceA"
+    },
+    {
+      "key": "fraud_device_b",
+      "value": "FraudTestDeviceB"
+    },
+    {
+      "key": "transaction_masked_card_search",
+      "value": "1111"
     }
   ],
   "item": [
@@ -76,12 +117,11 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Login succeeded', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});",
+                  "pm.test('Login succeeded', function () { pm.response.to.have.status(200); });",
                   "const data = pm.response.json();",
                   "if (data.access) pm.collectionVariables.set('access_token', data.access);",
-                  "if (data.refresh) pm.collectionVariables.set('refresh_token', data.refresh);"
+                  "if (data.refresh) pm.collectionVariables.set('refresh_token', data.refresh);",
+                  "pm.test('Access token returned', function () { pm.expect(data).to.have.property('access'); });"
                 ]
               }
             }
@@ -109,11 +149,10 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Refresh succeeded', function () {",
-                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
-                  "});",
+                  "pm.test('Refresh succeeded', function () { pm.response.to.have.status(200); });",
                   "const data = pm.response.json();",
-                  "if (data.access) pm.collectionVariables.set('access_token', data.access);"
+                  "if (data.access) pm.collectionVariables.set('access_token', data.access);",
+                  "pm.test('Access token refreshed', function () { pm.expect(data).to.have.property('access'); });"
                 ]
               }
             }
@@ -244,9 +283,10 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Payment request succeeded', function () { pm.response.to.have.status(201); });",
+                  "pm.test('Payment request returned a created response', function () { pm.response.to.have.status(201); });",
                   "const data = pm.response.json();",
-                  "pm.test('Final payment status is SUCCESS or FAILED', function () { pm.expect(['SUCCESS', 'FAILED']).to.include(data.status); });"
+                  "pm.test('Final payment status is SUCCESS or FAILED', function () { pm.expect(['SUCCESS', 'FAILED']).to.include(data.status); });",
+                  "pm.test('Fraud status is included', function () { pm.expect(data).to.have.property('fraud_status'); });"
                 ]
               }
             }
@@ -261,11 +301,19 @@
               {
                 "key": "Authorization",
                 "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "X-Client-Location",
+                "value": "{{fraud_location_a}}"
+              },
+              {
+                "key": "X-Device-ID",
+                "value": "{{fraud_device_a}}"
               }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"card_id\": \"{{card_id}}\",\n  \"amount\": 500,\n  \"currency\": \"INR\",\n  \"description\": \"Postman payment test\"\n}"
+              "raw": "{\n  \"card_id\": \"{{card_id}}\",\n  \"amount\": 500,\n  \"currency\": \"INR\",\n  \"description\": \"Postman payment test\",\n  \"category\": \"OTHER\"\n}"
             },
             "url": "{{fastapi_base}}/api/payments/"
           }
@@ -409,14 +457,9 @@
             ],
             "url": "{{django_base}}/transactions/?min_amount=100&max_amount=1000"
           }
-        }
-      ]
-    },
-    {
-      "name": "05 Admin",
-      "item": [
+        },
         {
-          "name": "Daily Dashboard Summary",
+          "name": "Filter by Masked Card",
           "request": {
             "method": "GET",
             "header": [
@@ -425,8 +468,108 @@
                 "value": "Bearer {{access_token}}"
               }
             ],
+            "url": "{{django_base}}/transactions/?masked_card={{transaction_masked_card_search}}",
+            "description": "Uses the masked_card query parameter. Change transaction_masked_card_search to a last-four or masked-card fragment in your test data."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Masked-card filter request succeeded', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Response is a list or paginated object', function () { const d=pm.response.json(); pm.expect(Array.isArray(d) || Array.isArray(d.results)).to.be.true; });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Pagination and Sorting",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": "{{django_base}}/transactions/?page=1&page_size=10&ordering=-created_at",
+            "description": "Requests page 1 with a page size of 10 and descending created_at order. If your endpoint uses different parameter names, match them to the view implementation."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Pagination/sorting request succeeded', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Response is a list or paginated object', function () { const d=pm.response.json(); pm.expect(Array.isArray(d) || Array.isArray(d.results)).to.be.true; });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "05 Admin",
+      "item": [
+        {
+          "name": "Admin Login (capture admin token)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{django_base}}/auth/login/",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{admin_username}}\",\n  \"password\": \"{{admin_password}}\"\n}"
+            },
+            "description": "Set admin_username and admin_password to your Django superuser credentials in Postman. This stores a separate admin_access_token."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Admin login succeeded', function () { pm.response.to.have.status(200); });",
+                  "const data = pm.response.json();",
+                  "if (data.access) pm.collectionVariables.set('admin_access_token', data.access);",
+                  "pm.test('Admin access token returned', function () { pm.expect(data).to.have.property('access'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin Dashboard Summary",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_access_token}}"
+              }
+            ],
             "url": "{{django_base}}/admin/dashboard/"
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Admin dashboard returned 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "Export Transactions CSV",
@@ -435,11 +578,344 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{access_token}}"
+                "value": "Bearer {{admin_access_token}}"
               }
             ],
             "url": "{{django_base}}/admin/transactions/export/"
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Transactions CSV export returned 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('CSV content type is returned', function () { pm.expect(pm.response.headers.get('Content-Type') || '').to.include('text/csv'); });",
+                  "pm.test('CSV download filename is included', function () { pm.expect(pm.response.headers.get('Content-Disposition') || '').to.include('attachment'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin List Cards",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_access_token}}"
+              }
+            ],
+            "url": "{{django_base}}/admin/cards/"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Admin cards endpoint returned 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin Block Card",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_access_token}}"
+              }
+            ],
+            "url": "{{django_base}}/admin/cards/{{admin_card_id}}/",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"is_active\": false\n}"
+            },
+            "description": "Changes only is_active. Run only when intentionally testing card blocking."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Block-card request succeeded', function () { pm.expect(pm.response.code).to.be.oneOf([200, 202]); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin Unblock Card",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_access_token}}"
+              }
+            ],
+            "url": "{{django_base}}/admin/cards/{{admin_card_id}}/",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"is_active\": true\n}"
+            },
+            "description": "Run after Admin Block Card when testing the block/unblock lifecycle."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Unblock-card request succeeded', function () { pm.expect(pm.response.code).to.be.oneOf([200, 202]); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin Update Credit Limit",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_access_token}}"
+              }
+            ],
+            "url": "{{django_base}}/admin/cards/{{admin_card_id}}/",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"credit_limit\": 25000\n}"
+            },
+            "description": "Intentionally changes the selected card credit limit to 25000 INR. Adjust the value or skip if you do not want to change test data."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Credit-limit update succeeded', function () { pm.expect(pm.response.code).to.be.oneOf([200, 202]); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin Analytics Dashboard",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_access_token}}"
+              }
+            ],
+            "url": "{{django_base}}/admin/analytics/"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Analytics endpoint returned 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Analytics response is JSON', function () { pm.expect(pm.response.headers.get('Content-Type') || '').to.include('application/json'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Export Analytics CSV",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_access_token}}"
+              }
+            ],
+            "url": "{{django_base}}/admin/analytics/export/?format=csv"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Analytics CSV export returned 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('CSV content type is returned', function () { pm.expect(pm.response.headers.get('Content-Type') || '').to.include('text/csv'); });",
+                  "pm.test('CSV download filename is included', function () { pm.expect(pm.response.headers.get('Content-Disposition') || '').to.include('attachment'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Export Analytics PDF",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_access_token}}"
+              }
+            ],
+            "url": "{{django_base}}/admin/analytics/export/?format=pdf"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Analytics PDF export returned 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('PDF content type is returned', function () { pm.expect(pm.response.headers.get('Content-Type') || '').to.include('application/pdf'); });",
+                  "pm.test('PDF download filename is included', function () { pm.expect(pm.response.headers.get('Content-Disposition') || '').to.include('attachment'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin Health Check",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_access_token}}"
+              }
+            ],
+            "url": "{{django_base}}/admin/health/"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Admin health endpoint returned 200', function () { pm.response.to.have.status(200); });",
+                  "const data = pm.response.json();",
+                  "pm.test('Health response includes status and database_status', function () { pm.expect(data).to.have.property('status'); pm.expect(data).to.have.property('database_status'); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "06 Fraud Detection (run in order)",
+      "description": "Use the same normal user's access_token and a card owned by that user. Run Baseline Signal first, then Changed Location/Device within five minutes. The rule compares recent transactions for the same user. Existing recent transactions can also cause a flag, so inspect FraudLog/rule_code when verifying the specific trigger. Fraud flags alert and log; they do not automatically reject the payment in this implementation.",
+      "item": [
+        {
+          "name": "Fraud Test A - Baseline Signal",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "X-Client-Location",
+                "value": "{{fraud_location_a}}"
+              },
+              {
+                "key": "X-Device-ID",
+                "value": "{{fraud_device_a}}"
+              }
+            ],
+            "url": "{{fastapi_base}}/api/payments/",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"card_id\": \"{{card_id}}\",\n  \"amount\": \"100.00\",\n  \"currency\": \"INR\",\n  \"description\": \"Fraud test baseline signal A\",\n  \"category\": \"OTHER\"\n}"
+            },
+            "description": "Run first. Uses fraud_location_a and fraud_device_a. A recent earlier transaction might also trigger a fraud flag; verify the rule_code in FraudLog if needed."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Baseline payment endpoint returned 201', function () { pm.response.to.have.status(201); });",
+                  "const data = pm.response.json();",
+                  "pm.test('Payment response includes fraud_status', function () { pm.expect(data).to.have.property('fraud_status'); });",
+                  "pm.test('Payment status is SUCCESS or FAILED', function () { pm.expect(['SUCCESS', 'FAILED']).to.include(data.status); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Fraud Test B - Changed Location and Device",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "X-Client-Location",
+                "value": "{{fraud_location_b}}"
+              },
+              {
+                "key": "X-Device-ID",
+                "value": "{{fraud_device_b}}"
+              }
+            ],
+            "url": "{{fastapi_base}}/api/payments/",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"card_id\": \"{{card_id}}\",\n  \"amount\": \"100.00\",\n  \"currency\": \"INR\",\n  \"description\": \"Fraud test changed location and device B\",\n  \"category\": \"OTHER\"\n}"
+            },
+            "description": "Run within five minutes of the baseline, with the same user and card. The device/location rule should flag the changed signals. A payment can still be SUCCESS or FAILED independently of fraud_status."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Changed-signal payment endpoint returned 201', function () { pm.response.to.have.status(201); });",
+                  "const data = pm.response.json();",
+                  "pm.test('Fraud status is FLAGGED after changed signals', function () { pm.expect(data.fraud_status).to.eql('FLAGGED'); });",
+                  "pm.test('Payment status remains a separate outcome', function () { pm.expect(['SUCCESS', 'FAILED']).to.include(data.status); });"
+                ]
+              }
+            }
+          ]
         }
       ]
     }

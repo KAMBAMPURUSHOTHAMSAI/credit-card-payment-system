@@ -1,3 +1,4 @@
+
 from datetime import datetime
 
 from sqlalchemy import (
@@ -8,6 +9,7 @@ from sqlalchemy import (
     Integer,
     Numeric,
     String,
+    Text,
 )
 
 from sqlalchemy.orm import relationship
@@ -19,8 +21,8 @@ class User(Base):
     """
     Read-only mapping of the existing Django user table.
 
-    FastAPI uses this mapping only to retrieve the
-    authenticated user's email for notifications.
+    FastAPI uses this mapping to retrieve the authenticated
+    user's email for notifications.
     """
 
     __tablename__ = "accounts_user"
@@ -125,6 +127,35 @@ class Transaction(Base):
         nullable=False,
     )
 
+    # Fraud detection result
+    fraud_status = Column(
+        String(15),
+        nullable=False,
+        default="NOT_CHECKED",
+        index=True,
+    )
+
+    # Category-wise spending analytics
+    category = Column(
+        String(50),
+        nullable=False,
+        default="OTHER",
+        index=True,
+    )
+
+    # Optional fraud detection signals
+    location = Column(
+        String(100),
+        nullable=False,
+        default="",
+    )
+
+    device_id = Column(
+        String(128),
+        nullable=False,
+        default="",
+    )
+
     reference = Column(
         String(64),
         nullable=False,
@@ -147,6 +178,7 @@ class Transaction(Base):
         DateTime,
         nullable=False,
         default=datetime.utcnow,
+        index=True,
     )
 
     updated_at = Column(
@@ -158,5 +190,82 @@ class Transaction(Base):
 
     card = relationship(
         "Card",
+        lazy="joined",
+    )
+
+
+class FraudLog(Base):
+    """
+    Stores suspicious transaction events and the rule
+    that triggered each fraud alert.
+    """
+
+    __tablename__ = "payments_fraudlog"
+
+    id = Column(
+        Integer,
+        primary_key=True,
+    )
+
+    user_id = Column(
+        Integer,
+        ForeignKey(
+            "accounts_user.id",
+            ondelete="SET NULL",
+        ),
+        nullable=True,
+    )
+
+    transaction_id = Column(
+        Integer,
+        ForeignKey(
+            "payments_transaction.id",
+            ondelete="SET NULL",
+        ),
+        nullable=True,
+    )
+
+    rule_code = Column(
+        String(100),
+        nullable=False,
+    )
+
+    details = Column(
+        Text,
+        nullable=False,
+        default="",
+    )
+
+    ip_address = Column(
+        String(39),
+        nullable=True,
+    )
+
+    location = Column(
+        String(100),
+        nullable=False,
+        default="",
+    )
+
+    device_id = Column(
+        String(128),
+        nullable=False,
+        default="",
+    )
+
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=datetime.utcnow,
+        index=True,
+    )
+
+    user = relationship(
+        "User",
+        lazy="joined",
+    )
+
+    transaction = relationship(
+        "Transaction",
         lazy="joined",
     )

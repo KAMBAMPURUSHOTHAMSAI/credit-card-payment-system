@@ -1,3 +1,4 @@
+
 from datetime import datetime
 from decimal import Decimal
 from typing import List, Optional
@@ -8,7 +9,7 @@ from pydantic import BaseModel, Field
 class PaymentRequest(BaseModel):
 
     card_id: int = Field(
-        gt=0
+        gt=0,
     )
 
     amount: Decimal = Field(
@@ -28,6 +29,12 @@ class PaymentRequest(BaseModel):
         max_length=255,
     )
 
+    # Optional spending category for analytics.
+    category: Optional[str] = Field(
+        default="OTHER",
+        max_length=50,
+    )
+
 
 class PaymentResponse(BaseModel):
 
@@ -39,6 +46,12 @@ class PaymentResponse(BaseModel):
     status: str
     description: str
     failure_reason: str
+
+    # Fraud detection result.
+    fraud_status: str = "NOT_CHECKED"
+
+    # Preserve the category used for analytics.
+    category: str = "OTHER"
 
 
 class DashboardTransaction(BaseModel):

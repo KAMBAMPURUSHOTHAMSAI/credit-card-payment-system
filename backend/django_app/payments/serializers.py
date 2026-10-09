@@ -1,6 +1,5 @@
 from decimal import Decimal
 
-from django.utils import timezone
 from rest_framework import serializers
 
 from .models import Card, Transaction
@@ -65,23 +64,11 @@ class CardSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
 
-        card_number = attrs.get(
-            "card_number"
-        )
-
+        card_number = attrs.get("card_number")
         cvv = attrs.get("cvv")
-
-        expiry_month = attrs.get(
-            "expiry_month"
-        )
-
-        expiry_year = attrs.get(
-            "expiry_year"
-        )
-
-        card_type = attrs.get(
-            "card_type"
-        )
+        expiry_month = attrs.get("expiry_month")
+        expiry_year = attrs.get("expiry_year")
+        card_type = attrs.get("card_type")
 
         credit_limit = attrs.get(
             "credit_limit",
@@ -89,10 +76,8 @@ class CardSerializer(serializers.ModelSerializer):
         )
 
         try:
-            cleaned_number = (
-                validate_card_number(
-                    card_number
-                )
+            cleaned_number = validate_card_number(
+                card_number
             )
 
             validate_cvv(cvv)
@@ -104,9 +89,7 @@ class CardSerializer(serializers.ModelSerializer):
 
         except ValueError as exc:
             raise serializers.ValidationError(
-                {
-                    "detail": str(exc)
-                }
+                {"detail": str(exc)}
             )
 
         if card_type == "DEBIT":
@@ -120,9 +103,7 @@ class CardSerializer(serializers.ModelSerializer):
                     }
                 )
 
-        attrs[
-            "_cleaned_card_number"
-        ] = cleaned_number
+        attrs["_cleaned_card_number"] = cleaned_number
 
         return attrs
 
@@ -132,42 +113,26 @@ class CardSerializer(serializers.ModelSerializer):
             "_cleaned_card_number"
         )
 
-        # Never store actual card number.
-        validated_data.pop(
-            "card_number",
-            None,
-        )
+        # Never store the actual card number.
+        validated_data.pop("card_number", None)
 
-        # Never store CVV.
-        validated_data.pop(
-            "cvv",
-            None,
-        )
+        # Never store the CVV.
+        validated_data.pop("cvv", None)
 
-        validated_data[
-            "card_brand"
-        ] = detect_card_brand(
+        validated_data["card_brand"] = detect_card_brand(
             card_number
         )
 
-        validated_data[
-            "masked_number"
-        ] = create_masked_card_number(
-            card_number
+        validated_data["masked_number"] = (
+            create_masked_card_number(card_number)
         )
 
-        validated_data[
-            "last4"
-        ] = card_number[-4:]
+        validated_data["last4"] = card_number[-4:]
 
-        return Card.objects.create(
-            **validated_data
-        )
+        return Card.objects.create(**validated_data)
 
 
-class TransactionSerializer(
-    serializers.ModelSerializer
-):
+class TransactionSerializer(serializers.ModelSerializer):
 
     card_number = serializers.CharField(
         source="card.masked_number",
@@ -185,10 +150,14 @@ class TransactionSerializer(
             "amount",
             "currency",
             "status",
+            "fraud_status",
+            "category",
             "description",
             "failure_reason",
             "created_at",
             "updated_at",
         ]
 
+        # Transaction fields remain read-only,
+        # including fraud_status and category.
         read_only_fields = fields
